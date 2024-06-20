@@ -36,6 +36,11 @@ class TranslationResponse(BaseModel):
     resultCode: int
     data: str
 
+class TranslationPaperRequest(BaseModel):
+    title: str
+    text: str
+    target_lang: str = 'KO'
+
 app = FastAPI()
 
 HUGGINGFACE_API_KEY = os.environ["HUGGINGFACE_API_KEY"]
@@ -48,7 +53,8 @@ client = weaviate.connect_to_local(
     }
 )
 
-collection = client.collections.get("Paper")
+paper_collection = client.collections.get("Paper")
+trans_collection = client.collections.get("Trans")
 
 class TranslationResponse(BaseModel):
     resultCode: int
@@ -92,10 +98,10 @@ async def save_wea(meta_response: MetaResponse = Body(...)) -> SaveWeaResponse:
     papers = meta_response.data
 
     try:
-        with collection.batch.fixed_size(5) as batch:
+        with paper_collection.batch.fixed_size(5) as batch:
             for paper in papers:
                 # title 중복 확인
-                response = collection.query.fetch_objects(
+                response = paper_collection.query.fetch_objects(
                     filters=Filter.by_property("title").equal(paper.title),
                     limit=1
                 )
@@ -123,7 +129,7 @@ async def save_wea(meta_response: MetaResponse = Body(...)) -> SaveWeaResponse:
 @app.get("/searchKeyword")
 async def search_keyword(searchword: str = Query(..., description="Search term for Weaviate db")) -> Dict[str, Any]:
     try:
-        response = collection.query.bm25(
+        response = paper_collection.query.bm25(
             query=searchword,
             return_metadata=MetadataQuery(score=True),
             query_properties=["title", "authors", "summary"],
@@ -152,3 +158,35 @@ async def translate_text_endpoint(request: TranslationRequest):
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Translation failed")
+
+
+@app.post("/translate_text_paper", response_model=TranslationResponse)
+async def translate_text_paper(request: TranslationPaperRequest):
+    try:
+        with trans_collection.batch.fixed_size(1) as batch:
+            response = trans_collection.query.fetch_objects(
+                    filters=Filter.by_property("title").equal(request.title),
+                    limit=1
+                )
+
+            if response.objects:
+                print("trans_summary is found")
+                trans_summary = response.objects[0].properties["trans_summary"]
+                if trans_summary:
+                    return {"resultCode": 200, "data": trans_summary}
+                else:
+                    return {"resultCode": 404, "data": "trans_summary is not found"}
+            else:
+                translator = deepl.Translator(DEEPL_AUTH_KEY)
+                result = translator.translate_text(request.text, target_lang=request.target_lang)
+                batch.add_object(
+                    properties={
+                        "title": request.title,
+                        "trans_summary": result.text
+                    }
+                )
+                return {"resultCode": 200, "data": result.text}
+    except deepl.DeepLException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
