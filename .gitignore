@@ -6,3 +6,7 @@
 
 # data
 weaviate/data/*
+
+# pdf, txt
+*.pdf
+*.txt

@@ -190,3 +190,5 @@ async def translate_text_paper(request: TranslationPaperRequest):
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
+
+
