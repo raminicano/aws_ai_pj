@@ -32,7 +32,7 @@ class TranslationRequest(BaseModel):
     text: str
     target_lang: str = 'KO'
 
-class TranslationResponse(BaseModel):
+class DataResponse(BaseModel):
     resultCode: int
     data: str
 
@@ -40,6 +40,10 @@ class TranslationPaperRequest(BaseModel):
     title: str
     text: str
     target_lang: str = 'KO'
+
+class PaperRequset(BaseModel):
+    title: str
+    text: str
 
 app = FastAPI()
 
@@ -54,7 +58,8 @@ client = weaviate.connect_to_local(
 )
 
 paper_collection = client.collections.get("Paper")
-trans_collection = client.collections.get("Trans")
+result_collection = client.collections.get("result")
+
 
 class TranslationResponse(BaseModel):
     resultCode: int
@@ -148,7 +153,7 @@ async def search_keyword(searchword: str = Query(..., description="Search term f
         return {"resultCode": 500, "data": str(e)}
 
 
-@app.post("/translate_text", response_model=TranslationResponse)
+@app.post("/translate_text", response_model=DataResponse)
 async def translate_text_endpoint(request: TranslationRequest):
     try:
         translator = deepl.Translator(DEEPL_AUTH_KEY)
@@ -160,35 +165,193 @@ async def translate_text_endpoint(request: TranslationRequest):
         raise HTTPException(status_code=500, detail="Translation failed")
 
 
-@app.post("/translate_text_paper", response_model=TranslationResponse)
+
+# 번역해서 저장하는 api (update)
+@app.post("/translate_text_paper", response_model=DataResponse)
 async def translate_text_paper(request: TranslationPaperRequest):
     try:
-        with trans_collection.batch.fixed_size(1) as batch:
-            response = trans_collection.query.fetch_objects(
-                    filters=Filter.by_property("title").equal(request.title),
-                    limit=1
-                )
-
-            if response.objects:
-                print("trans_summary is found")
-                trans_summary = response.objects[0].properties["trans_summary"]
-                if trans_summary:
-                    return {"resultCode": 200, "data": trans_summary}
-                else:
-                    return {"resultCode": 404, "data": "trans_summary is not found"}
-            else:
-                translator = deepl.Translator(DEEPL_AUTH_KEY)
-                result = translator.translate_text(request.text, target_lang=request.target_lang)
-                batch.add_object(
-                    properties={
-                        "title": request.title,
-                        "trans_summary": result.text
-                    }
-                )
-                return {"resultCode": 200, "data": result.text}
-    except deepl.DeepLException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(request.title),
+                limit=1
+            )
+        trans_summary = response.objects[0].properties["trans_summary"]
+        
+        if trans_summary:
+            print("trans_summary is found")
+            return {"resultCode": 200, "data": trans_summary}
+        else:
+            uuid = response.objects[0].uuid
+            translator = deepl.Translator(DEEPL_AUTH_KEY)
+            result = translator.translate_text(request.text, target_lang=request.target_lang)
+            
+            response.data.update(
+                uuid=uuid,
+                properties={
+                    "title": request.title,
+                    "trans_summary": result.text
+                }
+            )
+            return {"resultCode": 200, "data": result.text}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
 
 
+
+# full_text 저장하는 api (add)
+@app.post("/store_full_text", response_model=DataResponse)
+async def store_full_text(request: PaperRequset):
+    try:
+        with result_collection.batch.fixed_size(1) as batch:
+            response = result_collection.query.fetch_objects(
+                    filters=Filter.by_property("title").equal(request.title),
+                    limit=1,
+                    return_properties=["title", "full_text"]
+                )
+            full_text = response.objects[0].properties["full_text"]
+            if full_text:
+                print("full_text is found")
+                return {"resultCode": 200, "data": full_text}
+            else:
+                batch.add_object(
+                    properties={
+                        "title": request.title,
+                        "full_text": request.text
+                    }
+                )
+                return {"resultCode": 200, "data": request.text}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+
+# full_text 존재하는지 확인용 api
+@app.get("/getFullText", response_model=DataResponse)
+async def get_full_text(title: str = Query(..., description="Search title for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "full_text"]
+            )
+        full_text = response.objects[0].properties["full_text"]
+        if full_text:
+            return {"resultCode": 200, "data": response.objects[0].properties["full_text"]}
+        else:
+            return {"resultCode": 404, "data": "full_text is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+
+# summary1 존재하는지 확인용 api
+@app.get("/getSummary1", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "summary1"]
+            )
+        summary = response.objects[0].properties["summary1"]
+        if summary:
+            return {"resultCode": 200, "data": summary}
+        else:
+            return {"resultCode": 404, "data": "summary is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+
+# summary2 존재하는지 확인용 api
+@app.get("/getSummary2", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "summary2"]
+            )
+        summary = response.objects[0].properties["summary2"]
+        if summary:
+            return {"resultCode": 200, "data": summary}
+        else:
+            return {"resultCode": 404, "data": "summary is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+
+
+# summary3 존재하는지 확인용 api
+@app.get("/getSummary3", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "summary3"]
+            )
+        summary = response.objects[0].properties["summary3"]
+        if summary:
+            return {"resultCode": 200, "data": summary}
+        else:
+            return {"resultCode": 404, "data": "summary is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+
+# summary1 저장하는 api
+@app.post("/saveSummary1")
+async def save_summary(request: PaperRequset):
+    try:
+        check = result_collection.query.fetch_objects(
+            filters=Filter.by_property("title").equal(request.title),
+            limit=1
+        )
+        uuid = check.objects[0].uuid
+
+        result_collection.data.update(
+            uuid=uuid,
+            propertites={
+                "summary1": request.text
+            }
+        )
+        return {"resultCode": 200, "data": "summary1 저장 성공"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+# summary2 저장하는 api
+@app.post("/saveSummary2")
+async def save_summary(request: PaperRequset):
+    try:
+        check = result_collection.query.fetch_objects(
+            filters=Filter.by_property("title").equal(request.title),
+            limit=1
+        )
+        uuid = check.objects[0].uuid
+
+        result_collection.data.update(
+            uuid=uuid,
+            propertites={
+                "summary2": request.text
+            }
+        )
+        return {"resultCode": 200, "data": "summary2 저장 성공"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+# summary1 저장하는 api
+@app.post("/saveSummary3")
+async def save_summary(request: PaperRequset):
+    try:
+        check = result_collection.query.fetch_objects(
+            filters=Filter.by_property("title").equal(request.title),
+            limit=1
+        )
+        uuid = check.objects[0].uuid
+
+        result_collection.data.update(
+            uuid=uuid,
+            propertites={
+                "summary3": request.text
+            }
+        )
+        return {"resultCode": 200, "data": "summary3 저장 성공"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}

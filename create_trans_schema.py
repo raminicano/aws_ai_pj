@@ -20,10 +20,14 @@ else:
 
 # Paper 클래스의 속성 및 벡터화 설정 정의
 client.collections.create(
-    name="Trans",
+    name="result",
     properties=[
         wc.Property(name="title", data_type=wc.DataType.TEXT),
         wc.Property(name="trans_summary", data_type=wc.DataType.TEXT),
+        wc.Property(name="summary1", data_type=wc.DataType.TEXT),
+        wc.Property(name="summary2", data_type=wc.DataType.TEXT),
+        wc.Property(name="summary3", data_type=wc.DataType.TEXT),
+        wc.Property(name="full_text", data_type=wc.DataType.TEXT),
     ]
 )
 
