@@ -36,7 +36,7 @@ def summarize_PDF_file(pdf_file, model, input_title):
             text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
                 separator="\\n\\n",  # 분할 기준
                 chunk_size=2000,   # 청크 사이즈
-                chunk_overlap=500, # 중첩 사이즈
+                chunk_overlap=100, # 중첩 사이즈
             )
 
             split_texts = text_splitter.split_text(texts)
@@ -49,15 +49,15 @@ def summarize_PDF_file(pdf_file, model, input_title):
             #     st.write(paragraph)
             #     st.write("---")
         if model == "hf":
-            url = f"{FASTAPI_URL2}/summarize"
-            headers = {"Content-Type": "application/pdf", "titles": input_title}
-            summaries = requests.post(url, data=split_texts, headers=headers)
+            url2 = f"{FASTAPI_URL2}/summarize"
+            headers2 = {"Content-Type": "application/json", "titles": input_title}
+            summaries = requests.post(url2, json={"texts": split_texts}, headers=headers2)
             sum_list = summaries.json().get("data", "")
-            # st.write("요약된 단락:")
-            # for i, summary in enumerate(sum_list):
-            #     st.write(f"단락 {i+1}:")
-            #     st.write(summary)
-            #     st.write("---")
+            st.write("요약된 단락:")
+            for i, summary in enumerate(sum_list):
+                st.write(f"단락 {i+1}:")
+                st.write(summary)
+                st.write("---")
         else:
             print("구현중")
     else:

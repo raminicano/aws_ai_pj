@@ -16,7 +16,7 @@ client = weaviate.connect_to_local(
 paper_collection = client.collections.get("Paper")
 result_collection = client.collections.get("result")
 
-title = "hihihi"
+title = "testtt"
 
 response = result_collection.query.fetch_objects(
         filters=Filter.by_property("title").equal(title),
