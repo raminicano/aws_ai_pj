@@ -16,12 +16,12 @@ client = weaviate.connect_to_local(
 paper_collection = client.collections.get("Paper")
 result_collection = client.collections.get("result")
 
-title = "text"
+title = "bert paper"
 
 response = result_collection.query.fetch_objects(
         filters=Filter.by_property("title").equal(title),
         limit=1,
-        return_properties=["title", "full_text"]
+        return_properties=["title", "full_text", "summary1"]
     )
 
 print(response)
@@ -29,7 +29,7 @@ if response.objects:
     print("yes")
 else:
     print("no")
-# full_text = response.objects[0].properties["full_text"]
-# print(full_text)
+full_text = response.objects[0].properties["summary1"]
+print(full_text)
 
 client.close()

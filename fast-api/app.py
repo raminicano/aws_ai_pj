@@ -11,7 +11,38 @@ import deepl
 import tempfile
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
+from nltk.corpus import stopwords
+import string
+import nltk
+import torch
+from transformers import pipeline
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
+
+
+FASTAPI_URL1 = os.getenv('FASTAPI_URL1')
+
+executor = ThreadPoolExecutor(max_workers=3)
+
+
+nltk.download('stopwords')
+stop_words = stopwords.words('english')
+
+summarizer = pipeline("summarization", "jordiclive/flan-t5-3b-summarizer", torch_dtype=torch.bfloat16)
+
+
+def summarize_text(text, prompt=f"Here are some of the documents. Please summarize the main contents based on this document list. Answer:", max_length=512, min_length=5):
+    full_text = f"{prompt} {text}"
+    results = summarizer(
+        full_text,
+        num_beams=5,
+        min_length=min_length,
+        no_repeat_ngram_size=3,
+        truncation=True,
+        max_length=max_length,
+    )
+    return results[0]['summary_text']
 
 
 class Paper(BaseModel):
@@ -49,10 +80,26 @@ class PaperRequset(BaseModel):
     title: str
     text: str
 
+class SummaryRequest(BaseModel):
+    text: str
+
 app = FastAPI()
 
 HUGGINGFACE_API_KEY = os.environ["HUGGINGFACE_API_KEY"]
 DEEPL_AUTH_KEY = os.environ["DEEPL_AUTH_KEY"]
+
+
+def preprocess(text):
+    # -\n을 빈 문자열로 대체
+    text = text.replace("-\n", "")
+    # \n을 공백으로 대체
+    text = text.replace("\n", " ")
+    # 소문자로 변환
+    text = text.lower()
+
+    # 불용어 제거 및 토큰화
+    tokens = [word for word in text.split() if word not in stop_words]
+    return ' '.join(tokens)
 
 
 client = weaviate.connect_to_local(
@@ -312,7 +359,7 @@ async def save_summary(request: PaperRequset):
 
         result_collection.data.update(
             uuid=uuid,
-            propertites={
+            properties={
                 "summary1": request.text
             }
         )
@@ -332,7 +379,7 @@ async def save_summary(request: PaperRequset):
 
         result_collection.data.update(
             uuid=uuid,
-            propertites={
+            properties={
                 "summary2": request.text
             }
         )
@@ -352,7 +399,7 @@ async def save_summary(request: PaperRequset):
 
         result_collection.data.update(
             uuid=uuid,
-            propertites={
+            properties={
                 "summary3": request.text
             }
         )
@@ -360,6 +407,16 @@ async def save_summary(request: PaperRequset):
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
     
+@app.get("/delete_object")
+async def delete_object(title: str = Query(..., description="Title of the paper to delete")):
+    try:
+        result_collection.data.delete_many(
+            where=Filter.by_property("title").equal(title)
+        )
+        return {"resultCode": 200, "data": "Object deleted"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
 
 
 @app.post("/upload")
@@ -400,3 +457,64 @@ async def upload_pdf(file: UploadFile = File(...), titles: str = Form(...)):
             return {"resultCode": 200, "data": "저장성공"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/execute_summary2")
+async def execute_summary2(title: str = Query(..., description="Title of the paper to summarize")):
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "full_text"]
+            )
+        full_text = response.objects[0].properties["full_text"]
+        if full_text:
+            # 스플리터 지정
+            text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
+                separator="\\n\\n",  # 분할 기준
+                chunk_size=2000,   # 청크 사이즈
+                chunk_overlap=100, # 중첩 사이즈
+            )
+            split_texts = text_splitter.split_text(full_text)
+            
+            filtered_docs = []
+            for text in split_texts:
+                if "References" in text:
+                    text = text.split("References")[0]
+                    filtered_docs.append(text)
+                    break
+                filtered_docs.append(text)
+
+            # 각 문서에 대해 전처리 수행
+            processed_docs = [preprocess(doc) for doc in filtered_docs]
+
+            # summaries = []
+            # for doc in processed_docs:
+            #     summary = summarize_text(doc)
+            #     summaries.append(summary)
+
+            # 병렬 요약 작업 수행
+            loop = asyncio.get_running_loop()
+            summaries = await asyncio.gather(
+                *[loop.run_in_executor(executor, summarize_text, doc) for doc in processed_docs]
+            )
+
+            # 요약 리스트를 문자열로 변환
+            summary_str = " ".join(summaries)
+
+             # saveSummary2 API 호출
+            save_response = requests.post(
+                f"{FASTAPI_URL1}/saveSummary2",
+                json={"title": title, "text": summary_str}
+            )
+
+            if save_response.status_code == 200:
+                return {"resultCode": 200, "data": summary_str}
+            else:
+                return {"resultCode": 500, "data": "Failed to save summary"}
+
+        else:
+            return {"resultCode": 404, "data": "full_text is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}

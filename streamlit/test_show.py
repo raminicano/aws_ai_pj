@@ -64,6 +64,8 @@ else:
     st.write("OpenAI 구상 중")
 
 clicked_sum_model = st.button('PDF 문서 요약')
+clicked_key_model = st.button('키워드 추출')
+
 
 if clicked_sum_model:
     summarize_PDF_file(upload_file, input_title)

@@ -51,7 +51,7 @@ def summarize_PDF_file(pdf_file, model, input_title):
         if model == "bart":
             url2 = f"{FASTAPI_URL2}/summarize"
             headers2 = {"Content-Type": "application/json", "titles": input_title}
-            summaries = requests.post(url2, json={"texts": split_texts}, headers=headers2)
+            summaries = requests.post(url2, json={"title": input_title,"texts": split_texts}, headers=headers2)
             sum_list = summaries.json().get("data", "")
             st.write("요약된 단락:")
             for i, summary in enumerate(sum_list):
@@ -61,7 +61,34 @@ def summarize_PDF_file(pdf_file, model, input_title):
             print("구현중")
     else:
         st.write("PDF 파일를 업로드하세요.")
-            
+        
+
+#키워드 추출
+def keyword_extraction(input_title):
+    if input_title:
+        url = f"{FASTAPI_URL3}/keyword"
+        data = {"title": input_title}
+        response = requests.post(url, json=data)
+        if response.status_code == 200:
+            keywords = response.json().get("keywords", "")
+            st.write("추출된 키워드:", keywords)
+        else:
+            st.write("키워드 추출 실패:", response.json().get("detail", "Unknown error occurred"))
+    else:
+        st.write("제목을 입력하세요.")
+
+# def summary_extraction(input_title):
+#     if input_title:
+#         url = f"{FASTAPI_URL3}/getSum1"
+#         data = {"title": input_title}
+#         response = requests.post(url, json=data)
+#         if response.status_code == 200:
+#             summary = response.json()
+#             st.write("요약:", summary)
+#         else:
+#             st.write("요약 없음:", response.json().get("detail", "Unknown error occurred"))
+#     else:
+#         st.write("제목을 입력하세요.")
 
 # ------------- 사이드바 화면 구성 -----------------------
 with st.sidebar:
@@ -128,5 +155,11 @@ col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
 with col3:
     clicked_sum_model = st.button('PDF 문서 요약')
 
+with col3:
+    clicked_keyword_model = st.button('키워드 추출')
+
 if clicked_sum_model:
     summarize_PDF_file(upload_file, model, input_title)
+    
+if clicked_keyword_model:
+    keyword_extraction(input_title)
