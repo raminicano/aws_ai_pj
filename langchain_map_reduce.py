@@ -4,7 +4,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 from transformers import pipeline
-
+import torch
 
 loader = PyPDFLoader("./1910.14296v2.pdf")
 document = loader.load()
@@ -43,7 +43,7 @@ for i, doc in enumerate(split_docs):
 
 #----- Map 단계 : 텍스트 요약 -------
 
-summarizer = pipeline("summarization", "jordiclive/flan-t5-3b-summarizer")
+summarizer = pipeline("summarization", "jordiclive/flan-t5-3b-summarizer", torch_dtype=torch.bfloat16)
 
 # 텍스트 요약 함수 정의
 def summarize_text(text, prompt=f"Here are some of the documents. Please summarize the main contents based on this document list. Answer:", max_length=512, min_length=5):
@@ -57,3 +57,62 @@ def summarize_text(text, prompt=f"Here are some of the documents. Please summari
         max_length=max_length,
     )
     return results[0]['summary_text']
+
+
+# 각 분할된 도큐먼트에 대해 요약 실행
+summaries = []
+i = 1
+for doc in filtered_docs:
+    summary = summarize_text(doc)
+    summaries.append(summary)
+    # 요약본 저장
+    file_name = f"summary_doc_{i}.txt"
+    i += 1
+    with open(file_name, 'w', encoding='utf-8') as file:
+        file.write(summary)
+    print(f"Summary saved to {file_name}")
+
+
+
+##### Reduce 부분 ######
+# from langchain.prompts import PromptTemplate
+# from langchain.chains import LLMChain
+# from langchain.chat_models import ChatOpenAI
+
+# # Reduce 단계에서 처리할 프롬프트 정의
+# reduce_template = """다음은 요약의 집합입니다:
+# {doc_summaries}
+# 이것들을 바탕으로 통합된 요약을 만들어 주세요.
+# 답변:"""
+# reduce_prompt = PromptTemplate.from_template(reduce_template)
+
+# # LLMChain 정의
+# llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo-16k')
+# reduce_chain = LLMChain(llm=llm, prompt=reduce_prompt)
+
+# from langchain.chains.combine_documents.stuff import StuffDocumentsChain
+# combine_documents_chain = StuffDocumentsChain(
+#     llm_chain=reduce_chain,
+#     document_variable_name="doc_summaries"
+# )
+
+# from langchain.chains import ReduceDocumentsChain
+# reduce_documents_chain = ReduceDocumentsChain(
+#     combine_documents_chain=combine_documents_chain,
+#     collapse_documents_chain=combine_documents_chain,
+#     token_max=4000,
+# )
+# from langchain.chains import MapReduceDocumentsChain
+
+# map_reduce_chain = MapReduceDocumentsChain(
+#     llm_chain=reduce_chain,
+#     reduce_documents_chain=reduce_documents_chain,
+#     document_variable_name="pages",
+#     return_intermediate_steps=False,
+# )
+
+
+# # Map-Reduce 체인 실행
+# result = map_reduce_chain.run(filtered_docs)
+# # 요약 결과 출력
+# print(result)
