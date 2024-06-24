@@ -55,8 +55,7 @@ def summarize_PDF_file(pdf_file, model, input_title):
             sum_list = summaries.json().get("data", "")
             st.write("요약된 단락:")
             for i, summary in enumerate(sum_list):
-                st.write(f"단락 {i+1}:")
-                st.write(summary)
+                st.write(f"{summary}")
                 st.write("---")
         elif model == "flan":
             print("구현중")
@@ -65,28 +64,69 @@ def summarize_PDF_file(pdf_file, model, input_title):
             
 
 # ------------- 사이드바 화면 구성 -----------------------
-st.sidebar.title('Menu')
+with st.sidebar:
+    st.title('Summarization')
+    sum_model = ["flan-t5-3b-summarizer","bart-large-cnn", "의미론적 방법론"]
+    selected_sum_model = st.selectbox("Please select the PDF summary model.", sum_model)
+
+    if selected_sum_model == "flan-t5-3b-summarizer":
+        st.caption('https://huggingface.co/jordiclive/flan-t5-3b-summarizer')
+        st.caption('bart-large-cnn 허깅페이스 모델을 사용하여 텍스트 요약을 수행합니다. \
+                   이 모델의 차이점은 모델의 크기가 500MB로 적은 disk로도 요약이 가능합니다. \
+                   그러나 모델의 크기가 작은만큼 AI 학습이 효과가 다른 모델에 비해 떨어질 수 있습니다.')
+
+    elif selected_sum_model == "bart-large-cnn":
+        st.caption('https://huggingface.co/facebook/bart-large-cnn \
+                   bart-large-cnn 허깅페이스 모델을 사용하여 텍스트 요약을 수행합니다. \
+                   이 모델의 차이점은 모델의 크기가 500MB로 적은 disk로도 요약이 가능합니다. \
+                   그러나 모델의 크기가 작은만큼 AI 학습이 효과가 다른 모델에 비해 떨어질 수 있습니다.')
+
+    elif selected_sum_model == "의미론적 방법론":
+        st.header('Summary with 의미론적 방법론')
+
+    chart = ["All", "Time", "Accuracy"]
+    selected_chart = st.selectbox("Please select the chart.", chart)
+
+    st.markdown("---")
+
+    st.markdown(
+            '<h6>Made in &nbsp<img src="https://streamlit.io/images/brand/streamlit-mark-color.png" \
+            alt="Streamlit logo" height="16">&nbsp by',unsafe_allow_html=True)
+
+    st.markdown(
+            '<h6> \
+            <a href="https://github.com/raminicano">@raminicano</a> \
+            <a href="https://github.com/sinzng">@sinzng</a> \
+            <a href="https://github.com/wjdguswn1203">@wjdguswn1203</a> \
+            <a href="https://github.com/chang558">@chang558</a> \
+            </h6>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<h5></h5>', unsafe_allow_html=True)
+
+
 
 # ------------- 메인 화면 구성 --------------------------  
-st.title('Paragraph Extraction and Summarization from PDF')
 
-st.header("요약 모델 설정 ")
+if selected_sum_model == "flan-t5-3b-summarizer":
+    st.header('Summary with flan-t5-3b-summarizer')
+    model = "flan"
+elif selected_sum_model == "bart-large-cnn":
+    st.header('Summary with bart-large-cnn')
+    model = "bart"
+elif selected_sum_model == "의미론적 방법론":
+    st.header('Summary with 의미론적 방법론')
+    model = "bart"
 
-st.write("요약 모델을 선택하세요.")
-
-input_title = st.text_input("Paper title")
-st.write("논문의 제목을 입력하세요.")
-
-radio_selected_model = st.radio("PDF 문서 요약 모델", ["flan-t5-3b-summarizer","bart-large-cnn"], index=1, horizontal=True)
+input_title = st.text_input("논문의 제목을 입력하세요.")
 
 upload_file = st.file_uploader("PDF 파일를 업로드하세요.", type="pdf")
 
-if radio_selected_model == "flan-t5-3b-summarizer":
-    model = "flan"
-elif radio_selected_model == "bart-large-cnn":
-    model = "bart"
-
-clicked_sum_model = st.button('PDF 문서 요약')
+# 컬럼을 사용하여 버튼을 오른쪽에 배치
+col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
+with col3:
+    clicked_sum_model = st.button('PDF 문서 요약')
 
 if clicked_sum_model:
     summarize_PDF_file(upload_file, model, input_title)
