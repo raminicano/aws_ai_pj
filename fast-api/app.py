@@ -207,10 +207,10 @@ async def store_full_text(request: PaperRequset):
                     limit=1,
                     return_properties=["title", "full_text"]
                 )
-            full_text = response.objects[0].properties["full_text"]
-            if full_text:
+            
+            if response.objects:
                 print("full_text is found")
-                return {"resultCode": 200, "data": full_text}
+                return {"resultCode": 200, "data": response.objects[0].properties["full_text"]}
             else:
                 batch.add_object(
                     properties={
@@ -232,8 +232,8 @@ async def get_full_text(title: str = Query(..., description="Search title for We
                 limit=1,
                 return_properties=["title", "full_text"]
             )
-        full_text = response.objects[0].properties["full_text"]
-        if full_text:
+        
+        if response.objects:
             return {"resultCode": 200, "data": response.objects[0].properties["full_text"]}
         else:
             return {"resultCode": 404, "data": "full_text is not found"}
