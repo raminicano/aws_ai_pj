@@ -43,11 +43,11 @@ def summarize_PDF_file(pdf_file, model, input_title):
             st.write(len(split_texts), "단락이 있음.")
             
             # 결과 출력
-            # st.write("단락별 텍스트:")
-            # for i, paragraph in enumerate(split_texts):
-            #     st.write(f"단락 {i+1}:")
-            #     st.write(paragraph)
-            #     st.write("---")
+            st.write("단락별 텍스트:")
+            for i, paragraph in enumerate(split_texts):
+                st.write(f"단락 {i+1}:")
+                st.write(paragraph)
+                st.write("---")
         if model == "hf":
             url2 = f"{FASTAPI_URL2}/summarize"
             headers2 = {"Content-Type": "application/json", "titles": input_title}

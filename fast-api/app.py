@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, UploadFile, File, Form
 import requests
 import feedparser
 from typing import List, Dict, Any
@@ -8,6 +8,10 @@ import os
 import weaviate.classes.config as wc
 from weaviate.classes.query import Filter, MetadataQuery
 import deepl
+import tempfile
+from langchain.document_loaders import PyPDFLoader
+from langchain.text_splitter import CharacterTextSplitter
+
 
 
 class Paper(BaseModel):
@@ -355,3 +359,44 @@ async def save_summary(request: PaperRequset):
         return {"resultCode": 200, "data": "summary3 저장 성공"}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
+    
+
+
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...), titles: str = Form(...)):
+    try:
+        # PDF 파일을 임시 파일로 저장
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(file.file.read())
+            tmp_file.flush()
+
+            # PDF 파일에서 텍스트 추출
+            loader = PyPDFLoader(tmp_file.name)
+            document = loader.load()
+
+            # 텍스트 분할 및 필터링
+            text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
+                separator="\n\n",  # 분할 기준
+                chunk_size=2000,   # 청크 사이즈
+                chunk_overlap=500, # 중첩 사이즈
+            )
+
+            split_docs = text_splitter.split_documents(document)
+            filtered_docs = []
+            for doc in split_docs:
+                if "References" in doc.page_content:
+                    doc.page_content = doc.page_content.split("References")[0]
+                    filtered_docs.append(doc.page_content)
+                    break
+                filtered_docs.append(doc.page_content)
+
+            for i in range(len(filtered_docs)):
+                file_name = f"split_doc_{i+1}.txt"
+
+                with open(file_name, 'w', encoding='utf-8') as file:
+                    file.write(filtered_docs[i])
+                print(f"Document saved to {file_name}")
+
+            return {"resultCode": 200, "data": "저장성공"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
