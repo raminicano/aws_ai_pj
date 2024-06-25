@@ -18,10 +18,15 @@ import torch
 from transformers import pipeline
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import httpx
+
 
 
 
 FASTAPI_URL1 = os.getenv('FASTAPI_URL1')
+# FASTAPI_URL_LOCAL = os.getenv('FASTAPI_URL_LOCAL')
+# print(FASTAPI_URL_LOCAL)
+FASTAPI_URL_LOCAL = os.getenv('FASTAPI_URL_LOCAL')
 
 # executor = ThreadPoolExecutor(max_workers=3)
 
@@ -587,7 +592,7 @@ async def save_time1(title: str, time: int):
      
 
 # keyword 조회
-@app.get("/getbertKeyword", response_model=DataResponse)
+@app.get("/getbertKeyword")
 async def get_keyword(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
     try:
         response = result_collection.query.fetch_objects(
@@ -604,7 +609,7 @@ async def get_keyword(title: str = Query(..., description="Search summary for We
         return {"resultCode": 500, "data": str(e)}
 
 
-@app.get("/getrankKeyword", response_model=DataResponse)
+@app.get("/getrankKeyword")
 async def get_keyword(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
     try:
         response = result_collection.query.fetch_objects(
@@ -622,7 +627,7 @@ async def get_keyword(title: str = Query(..., description="Search summary for We
 
 
 # keyword 저장
-@app.post("/savebertKeyword", response_model=DataResponse)
+@app.post("/savebertKeyword")
 async def save_keyword(request: KeywordRequest):
     try:
         check = result_collection.query.fetch_objects(
@@ -642,7 +647,7 @@ async def save_keyword(request: KeywordRequest):
         return {"resultCode": 500, "data": str(e)}
 
 
-@app.post("/saverankKeyword", response_model=DataResponse)
+@app.post("/saverankKeyword")
 async def save_keyword(request: KeywordRequest):
     try:
         check = result_collection.query.fetch_objects(
@@ -658,5 +663,22 @@ async def save_keyword(request: KeywordRequest):
             }
         )
         return {"resultCode": 200, "data": request.keyword}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+
+@app.get("/checksummarytext")
+async def checksummarytext(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{FASTAPI_URL_LOCAL}/Hello",
+                # json={"title": title}
+            )
+            summary_text = response.json()["data"]
+        if summary_text:
+            return {"resultCode": 200, "data": summary_text}
+        else:
+            return {"resultCode": 404, "data": "summary_text is not found"}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
