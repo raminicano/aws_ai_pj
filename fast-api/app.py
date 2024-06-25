@@ -23,26 +23,26 @@ from concurrent.futures import ThreadPoolExecutor
 
 FASTAPI_URL1 = os.getenv('FASTAPI_URL1')
 
-executor = ThreadPoolExecutor(max_workers=3)
+# executor = ThreadPoolExecutor(max_workers=3)
 
 
-nltk.download('stopwords')
-stop_words = stopwords.words('english')
+# nltk.download('stopwords')
+# stop_words = stopwords.words('english')
 
-summarizer = pipeline("summarization", "jordiclive/flan-t5-3b-summarizer", torch_dtype=torch.bfloat16)
+# summarizer = pipeline("summarization", "jordiclive/flan-t5-3b-summarizer", torch_dtype=torch.bfloat16)
 
 
-def summarize_text(text, prompt=f"Here are some of the documents. Please summarize the main contents based on this document list. Answer:", max_length=512, min_length=5):
-    full_text = f"{prompt} {text}"
-    results = summarizer(
-        full_text,
-        num_beams=5,
-        min_length=min_length,
-        no_repeat_ngram_size=3,
-        truncation=True,
-        max_length=max_length,
-    )
-    return results[0]['summary_text']
+# def summarize_text(text, prompt=f"Here are some of the documents. Please summarize the main contents based on this document list. Answer:", max_length=512, min_length=5):
+#     full_text = f"{prompt} {text}"
+#     results = summarizer(
+#         full_text,
+#         num_beams=5,
+#         min_length=min_length,
+#         no_repeat_ngram_size=3,
+#         truncation=True,
+#         max_length=max_length,
+#     )
+#     return results[0]['summary_text']
 
 
 class Paper(BaseModel):
@@ -83,23 +83,27 @@ class PaperRequset(BaseModel):
 class SummaryRequest(BaseModel):
     text: str
 
+class KeywordRequest(BaseModel):
+    title: str
+    keyword: list
+
 app = FastAPI()
 
 HUGGINGFACE_API_KEY = os.environ["HUGGINGFACE_API_KEY"]
 DEEPL_AUTH_KEY = os.environ["DEEPL_AUTH_KEY"]
 
 
-def preprocess(text):
-    # -\n을 빈 문자열로 대체
-    text = text.replace("-\n", "")
-    # \n을 공백으로 대체
-    text = text.replace("\n", " ")
-    # 소문자로 변환
-    text = text.lower()
+# def preprocess(text):
+#     # -\n을 빈 문자열로 대체
+#     text = text.replace("-\n", "")
+#     # \n을 공백으로 대체
+#     text = text.replace("\n", " ")
+#     # 소문자로 변환
+#     text = text.lower()
 
-    # 불용어 제거 및 토큰화
-    tokens = [word for word in text.split() if word not in stop_words]
-    return ' '.join(tokens)
+#     # 불용어 제거 및 토큰화
+#     tokens = [word for word in text.split() if word not in stop_words]
+#     return ' '.join(tokens)
 
 
 client = weaviate.connect_to_local(
@@ -459,62 +463,200 @@ async def upload_pdf(file: UploadFile = File(...), titles: str = Form(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-@app.get("/execute_summary2")
-async def execute_summary2(title: str = Query(..., description="Title of the paper to summarize")):
+@app.get("/getTime1", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
     try:
         response = result_collection.query.fetch_objects(
                 filters=Filter.by_property("title").equal(title),
                 limit=1,
-                return_properties=["title", "full_text"]
+                return_properties=["title", "time1"]
             )
-        full_text = response.objects[0].properties["full_text"]
-        if full_text:
-            # 스플리터 지정
-            text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
-                separator="\\n\\n",  # 분할 기준
-                chunk_size=2000,   # 청크 사이즈
-                chunk_overlap=100, # 중첩 사이즈
-            )
-            split_texts = text_splitter.split_text(full_text)
-            
-            filtered_docs = []
-            for text in split_texts:
-                if "References" in text:
-                    text = text.split("References")[0]
-                    filtered_docs.append(text)
-                    break
-                filtered_docs.append(text)
-
-            # 각 문서에 대해 전처리 수행
-            processed_docs = [preprocess(doc) for doc in filtered_docs]
-
-            # summaries = []
-            # for doc in processed_docs:
-            #     summary = summarize_text(doc)
-            #     summaries.append(summary)
-
-            # 병렬 요약 작업 수행
-            loop = asyncio.get_running_loop()
-            summaries = await asyncio.gather(
-                *[loop.run_in_executor(executor, summarize_text, doc) for doc in processed_docs]
-            )
-
-            # 요약 리스트를 문자열로 변환
-            summary_str = " ".join(summaries)
-
-             # saveSummary2 API 호출
-            save_response = requests.post(
-                f"{FASTAPI_URL1}/saveSummary2",
-                json={"title": title, "text": summary_str}
-            )
-
-            if save_response.status_code == 200:
-                return {"resultCode": 200, "data": summary_str}
-            else:
-                return {"resultCode": 500, "data": "Failed to save summary"}
-
+        time = response.objects[0].properties["time1"]
+        time = str(time)
+        if time:
+            return {"resultCode": 200, "data": time}
         else:
-            return {"resultCode": 404, "data": "full_text is not found"}
+            return {"resultCode": 404, "data": "time is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+ 
+
+@app.get("/getTime2", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "time2"]
+            )
+        time = response.objects[0].properties["time2"]
+        time = str(time)
+        if time:
+            return {"resultCode": 200, "data": time}
+        else:
+            return {"resultCode": 404, "data": "time is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+    
+
+
+@app.get("/getTime3", response_model=DataResponse)
+async def get_summary(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "time3"]
+            )
+        time = response.objects[0].properties["time3"]
+        time = str(time)
+        if time:
+            return {"resultCode": 200, "data": time}
+        else:
+            return {"resultCode": 404, "data": "time is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+ # time1 저장하는 api
+
+
+
+@app.get("/saveTime1", response_model=DataResponse)
+async def save_time1(title: str, time: int):
+     try:
+         check = result_collection.query.fetch_objects(
+             filters=Filter.by_property("title").equal(title),
+             limit=1
+         )
+         uuid = check.objects[0].uuid
+
+         result_collection.data.update(
+             uuid=uuid,
+             properties={
+                 "time1": time
+             }
+         )
+         time = str(time)
+         return {"resultCode": 200, "data": time}
+     except Exception as e:
+         return {"resultCode": 500, "data": str(e)}
+     
+
+
+
+@app.get("/saveTime2", response_model=DataResponse)
+async def save_time1(title: str, time: int):
+     try:
+         check = result_collection.query.fetch_objects(
+             filters=Filter.by_property("title").equal(title),
+             limit=1
+         )
+         uuid = check.objects[0].uuid
+
+         result_collection.data.update(
+             uuid=uuid,
+             properties={
+                 "time2": time
+             }
+         )
+         time = str(time)
+         return {"resultCode": 200, "data": time}
+     except Exception as e:
+         return {"resultCode": 500, "data": str(e)}
+     
+
+@app.get("/saveTime3", response_model=DataResponse)
+async def save_time1(title: str, time: int):
+     try:
+         check = result_collection.query.fetch_objects(
+             filters=Filter.by_property("title").equal(title),
+             limit=1
+         )
+         uuid = check.objects[0].uuid
+
+         result_collection.data.update(
+             uuid=uuid,
+             properties={
+                 "time3": time
+             }
+         )
+         time = str(time)
+         return {"resultCode": 200, "data": time}
+     except Exception as e:
+         return {"resultCode": 500, "data": str(e)}
+     
+
+# keyword 조회
+@app.get("/getbertKeyword", response_model=DataResponse)
+async def get_keyword(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "bert_keywords"]
+            )
+        keyword = response.objects[0].properties["bert_keywords"]
+        if keyword:
+            return {"resultCode": 200, "data": keyword}
+        else:
+            return {"resultCode": 404, "data": "keyword is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+
+@app.get("/getrankKeyword", response_model=DataResponse)
+async def get_keyword(title: str = Query(..., description="Search summary for Weaviate db")) -> Dict[str, Any]:
+    try:
+        response = result_collection.query.fetch_objects(
+                filters=Filter.by_property("title").equal(title),
+                limit=1,
+                return_properties=["title", "rank_keywords"]
+            )
+        keyword = response.objects[0].properties["rank_keywords"]
+        if keyword:
+            return {"resultCode": 200, "data": keyword}
+        else:
+            return {"resultCode": 404, "data": "keyword is not found"}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+
+# keyword 저장
+@app.post("/savebertKeyword", response_model=DataResponse)
+async def save_keyword(request: KeywordRequest):
+    try:
+        check = result_collection.query.fetch_objects(
+            filters=Filter.by_property("title").equal(request.title),
+            limit=1
+        )
+        uuid = check.objects[0].uuid
+
+        result_collection.data.update(
+            uuid=uuid,
+            properties={
+                "bert_keywords": request.keyword
+            }
+        )
+        return {"resultCode": 200, "data": request.keyword}
+    except Exception as e:
+        return {"resultCode": 500, "data": str(e)}
+
+
+@app.post("/saverankKeyword", response_model=DataResponse)
+async def save_keyword(request: KeywordRequest):
+    try:
+        check = result_collection.query.fetch_objects(
+            filters=Filter.by_property("title").equal(request.title),
+            limit=1
+        )
+        uuid = check.objects[0].uuid
+
+        result_collection.data.update(
+            uuid=uuid,
+            properties={
+                "rank_keywords": request.keyword
+            }
+        )
+        return {"resultCode": 200, "data": request.keyword}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}

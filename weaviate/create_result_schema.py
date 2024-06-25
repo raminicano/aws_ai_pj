@@ -28,12 +28,17 @@ client.collections.create(
         wc.Property(name="summary2", data_type=wc.DataType.TEXT),
         wc.Property(name="summary3", data_type=wc.DataType.TEXT),
         wc.Property(name="full_text", data_type=wc.DataType.TEXT),
+        wc.Property(name="bert_keywords", data_type=wc.DataType.TEXT_ARRAY),
+        wc.Property(name="rank_keywords", data_type=wc.DataType.TEXT_ARRAY),
+        wc.Property(name="time1", data_type=wc.DataType.INT),
+        wc.Property(name="time2", data_type=wc.DataType.INT),
+        wc.Property(name="time3", data_type=wc.DataType.INT),
     ]
 )
 
 # 스키마 생성 확인
 print("Trans 컬렉션이 성공적으로 생성되었습니다.")
-collection = client.collections.get("Trans")
+collection = client.collections.get("result")
 print(collection)
 
 client.close()
