@@ -478,10 +478,10 @@ async def get_summary(title: str = Query(..., description="Search summary for We
             )
         time = response.objects[0].properties["time1"]
         time = str(time)
-        if time:
-            return {"resultCode": 200, "data": time}
-        else:
+        if time == "None":
             return {"resultCode": 404, "data": "time is not found"}
+        else:
+            return {"resultCode": 200, "data": time}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
  
@@ -496,10 +496,10 @@ async def get_summary(title: str = Query(..., description="Search summary for We
             )
         time = response.objects[0].properties["time2"]
         time = str(time)
-        if time:
-            return {"resultCode": 200, "data": time}
-        else:
+        if time == "None":
             return {"resultCode": 404, "data": "time is not found"}
+        else:
+            return {"resultCode": 200, "data": time}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
     
@@ -515,10 +515,10 @@ async def get_summary(title: str = Query(..., description="Search summary for We
             )
         time = response.objects[0].properties["time3"]
         time = str(time)
-        if time:
-            return {"resultCode": 200, "data": time}
-        else:
+        if time == "None":
             return {"resultCode": 404, "data": "time is not found"}
+        else:
+            return {"resultCode": 200, "data": time}
     except Exception as e:
         return {"resultCode": 500, "data": str(e)}
 

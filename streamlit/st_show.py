@@ -53,9 +53,7 @@ def summarize_PDF_file(pdf_file, model, input_title):
             print(FASTAPI_URL_LOCAL)
 
             response1 = requests.post(f"{FASTAPI_URL_LOCAL}/execute_summary1", json={"title": input_title,"texts": texts}, headers=headers2)
-            # 응답 상태 코드와 내용 출력
-            print(f"Status code: {response1.status_code}")
-            print(f"Response text: {response1.text}")
+
             sum_list = response1.json().get("data", "")
 
             st.write("요약된 단락:")
@@ -129,16 +127,19 @@ def match_count(input_title):
     sum1 = requests.get(f"{FASTAPI_URL1}/getSummary1?title={input_title}").json().get("data", "")
     sum2 = requests.get(f"{FASTAPI_URL1}/getSummary2?title={input_title}").json().get("data", "")
     sum3 = requests.get(f"{FASTAPI_URL1}/getSummary3?title={input_title}").json().get("data", "")
-
+    print("sum1 출력해봅시다.")
     bert_count1, bert_count2, bert_count3 = 0, 0, 0
     rank_count1, rank_count2, rank_count3 = 0, 0, 0
-
+    print(f"키워드 1: {split_keywords1}, 키워드 2: {split_keywords2}")
     for key in split_keywords1:
         if key in sum1:
+            print("sum1", key)
             bert_count1 += 1
         if key in sum2:
+            print("sum2", key)
             bert_count2 += 1
         if key in sum3:
+            print("sum3", key)
             bert_count3 += 1
 
     for key in split_keywords2:
@@ -149,6 +150,8 @@ def match_count(input_title):
         if key in sum3:
             rank_count3 += 1
 
+    print(bert_count1, bert_count2, bert_count3, rank_count1, rank_count2, rank_count3)
+    print(len(split_keywords1), len(split_keywords2))
     bert_count1 = int((bert_count1 / len(split_keywords1)) * 100)
     bert_count2 = int((bert_count2 / len(split_keywords1)) * 100)
     bert_count3 = int((bert_count3 / len(split_keywords1)) * 100)

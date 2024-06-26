@@ -16,19 +16,26 @@ client = weaviate.connect_to_local(
 paper_collection = client.collections.get("Paper")
 result_collection = client.collections.get("result")
 
-title = "babo2"
+title = "bert paper6"
 
 response = result_collection.query.fetch_objects(
         filters=Filter.by_property("title").equal(title),
         limit=1,
-        return_properties=["title", "full_text", "time2"]
+        return_properties=["title", "time1", "time2"]
     )
 
-print(response)
 if response.objects:
+    print("yes")
+    print(response.objects[0].properties)
+else:
+    print("no")
+time = response.objects[0].properties["time1"]
+time = str(time)
+if time == "None":
     print("yes")
 else:
     print("no")
+
 
 
 client.close()

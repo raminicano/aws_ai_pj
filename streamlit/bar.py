@@ -10,7 +10,7 @@ def single_bar_all(time1_percent, time2_percent, time3_percent, count_percent1, 
     
     options = {
         "legend":{
-            "data": ["keybert", "textrank"],
+            "data": ["time", "accuracy"],
             "top": "top",  # 범례를 상단에 배치
             "right": "right",  # 범례를 오른쪽에 배치
         },
@@ -32,21 +32,21 @@ def single_bar_all(time1_percent, time2_percent, time3_percent, count_percent1, 
         },
         "series": [
             {   
-                "name": "keybert",
+                "name": "time",
                 "data": [time1_percent, time2_percent, time3_percent],
                 "type": "bar",
                 "barWidth": '25%',  # 막대 너비 설정
                 "itemStyle": {
-                    "color": "#F0BD75"  # 막대 색상 설정
+                    "color": "#A6D0EF"  # 막대 색상 설정
                 }
             },
             {   
-                "name": "textrank",
+                "name": "accuracy",
                 "data": [count_percent1, count_percent2, count_percent3],
                 "type": "bar",
                 "barWidth": '25%',  # 막대 너비 설정
                 "itemStyle": {
-                    "color": "#EFE4B0"  # 막대 색상 설정
+                    "color": "#FF8738"  # 막대 색상 설정
                 }
             },
                
