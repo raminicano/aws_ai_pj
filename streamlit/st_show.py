@@ -172,7 +172,7 @@ def count_percentage(bert_count1, bert_count2, bert_count3, rank_count1, rank_co
 
 # ------------- 사이드바 화면 구성 -----------------------
 with st.sidebar:
-    st.title('Summarization')
+    st.title('Summarization📝')
     sum_model = ["bart-large-cnn","flan-t5-3b-summarizer", "flan-semantic"]
     selected_sum_model = st.selectbox("Please select the PDF summary model.", sum_model)
 
