@@ -23,7 +23,6 @@ def summarize_PDF_file(pdf_file, model, input_title):
 
         st.write("PDF 문서를 요약 중입니다. 잠시만 기다려 주세요.")
 
-        # PDF 파일을 바이트 스트림으로 읽기
         file_bytes = pdf_file.read()
         url = f"{FASTAPI_URL3}/upload"
         headers = {"Content-Type": "application/pdf", "titles": input_title}
